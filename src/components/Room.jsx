@@ -481,8 +481,12 @@ export default function Room({ session, onLeave }) {
 
   /* Fullscreen tracking — standard + WebKit document events */
   useEffect(() => {
+    const lockOrientation = (v) => {
+      if (!screen.orientation?.lock || !v?.videoWidth) return;
+      const orient = v.videoWidth >= v.videoHeight ? "landscape" : "portrait";
+      screen.orientation.lock(orient).catch(() => {});
+    };
     const reattach = () => {
-      /* Fix 1: re-attach partner movie stream if iOS/browser cleared srcObject on exit */
       if (isHost) return;
       const v = videoRef.current || document.getElementById("main-video");
       if (!v) return;
@@ -494,7 +498,12 @@ export default function Room({ session, onLeave }) {
     const h = () => {
       const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
       setFullscreen(isFs);
-      if (!isFs) reattach();
+      if (isFs) {
+        lockOrientation(videoRef.current || document.getElementById("main-video"));
+      } else {
+        screen.orientation?.unlock?.();
+        reattach();
+      }
     };
     document.addEventListener("fullscreenchange",       h);
     document.addEventListener("webkitfullscreenchange", h);
@@ -509,9 +518,10 @@ export default function Room({ session, onLeave }) {
   useEffect(() => {
     const v = document.getElementById("main-video");
     if (!v) return;
-    const onBegin = () => setFullscreen(true);
+    const onBegin = () => setFullscreen(true); // iOS handles its own orientation
     const onEnd = () => {
       setFullscreen(false);
+      screen.orientation?.unlock?.();
       if (!isHost) {
         const ms = remoteMovieStreamRef.current;
         if (ms && !v.srcObject) { v.srcObject = ms; v.play().catch(() => setAudioLocked(true)); }

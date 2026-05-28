@@ -11,6 +11,19 @@
   min-height: 0;
 }
 
+/* Fullscreen: override every mobile sizing constraint so the video
+   fills the entire viewport. object-fit:contain on the video element
+   maintains aspect ratio with black bars — no cropping, no stretching. */
+.vwrap:fullscreen,
+.vwrap:-webkit-full-screen {
+  width: 100vw   !important;
+  height: 100dvh !important;
+  aspect-ratio: unset !important;
+  flex: none !important;
+  top: 0 !important;
+  left: 0 !important;
+}
+
 .vwrap .main-vid {
   flex: 1;
   min-height: 0;
