@@ -1,0 +1,122 @@
+/* ── Camera panel ── */
+.cam-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: .85rem;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+/* ── Camera grid ── */
+.cam-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .5rem;
+}
+
+.cam-tile {
+  position: relative;
+  background: #000;
+  border-radius: 10px;
+  overflow: hidden;
+  aspect-ratio: 4/3;
+  border: 1px solid var(--b1);
+}
+.cam-tile .tile-lbl {
+  position: absolute;
+  bottom: .35rem;
+  left: .35rem;
+  background: rgba(0,0,0,.75);
+  color: #fff;
+  font-size: .6rem;
+  padding: .12rem .4rem;
+  border-radius: 4px;
+}
+.cam-tile .tile-muted {
+  position: absolute;
+  top: .35rem;
+  right: .35rem;
+  background: rgba(248,113,113,.85);
+  color: #fff;
+  font-size: .58rem;
+  padding: .1rem .35rem;
+  border-radius: 3px;
+}
+
+.cam-ph {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--muted);
+  gap: .4rem;
+  font-size: .65rem;
+  text-align: center;
+  padding: 0 .5rem;
+}
+.ph-ic { font-size: 1.8rem; opacity: .25; }
+
+.cam-ctrls { display: flex; gap: .5rem; }
+
+/* ── PiP overlays on video ── */
+.pip-wrap {
+  position: absolute;
+  top: .75rem;
+  right: .75rem;
+  display: flex;
+  gap: .5rem;
+  flex-direction: row;
+  z-index: 210;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity .35s ease;
+}
+.vwrap.is-fs .pip-wrap,
+.pip-wrap.show { opacity: 1; }
+
+.pip-tile {
+  width: 130px;
+  height: 96px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #111;
+  border: 2px solid rgba(245,197,24,.4);
+  position: relative;
+  flex-shrink: 0;
+  box-shadow: 0 6px 24px rgba(0,0,0,.7);
+}
+.pip-tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pip-tile .pip-lbl {
+  position: absolute;
+  bottom: .3rem;
+  left: .35rem;
+  background: rgba(0,0,0,.75);
+  color: #fff;
+  font-size: .58rem;
+  padding: .1rem .35rem;
+  border-radius: 3px;
+}
+.pip-tile .pip-ph {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: rgba(255,255,255,.3);
+  font-size: .6rem;
+  gap: .3rem;
+  text-align: center;
+}
+.pip-tile .pip-ph .pip-ph-ic { font-size: 1.4rem; opacity: .3; }
+.pip-tile .pip-muted {
+  position: absolute;
+  top: .3rem;
+  right: .3rem;
+  background: rgba(248,113,113,.85);
+  color: #fff;
+  font-size: .55rem;
+  padding: .1rem .3rem;
+  border-radius: 3px;
+}

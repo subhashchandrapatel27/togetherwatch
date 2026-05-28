@@ -1,0 +1,54 @@
+/* ── Toasts ── */
+.toast {
+  position: fixed;
+  top: 68px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: .45rem 1rem;
+  border-radius: 8px;
+  font-size: .72rem;
+  letter-spacing: .04em;
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+  animation: tIn .25s ease, tOut .25s ease 2.2s forwards;
+}
+
+.toast-sync {
+  background: rgba(34,197,94,.12);
+  border: 1px solid rgba(34,197,94,.25);
+  color: var(--ok);
+}
+
+.toast-copy,
+.toast-ss {
+  top: auto;
+  bottom: 1.5rem;
+  left: auto;
+  right: 1.5rem;
+  transform: none;
+  animation: ctIn .2s ease, ctOut .2s ease 1.8s forwards;
+}
+
+.toast-copy {
+  background: rgba(245,197,24,.12);
+  border: 1px solid rgba(245,197,24,.25);
+  color: var(--acc);
+}
+
+.toast-ss {
+  right: auto;
+  left: 1.5rem;
+  background: rgba(255,140,0,.12);
+  border: 1px solid rgba(255,140,0,.25);
+  color: var(--acc3);
+}
+
+@keyframes tIn  { from { opacity:0; transform:translateX(-50%) translateY(-8px) } to { opacity:1; transform:translateX(-50%) translateY(0) } }
+@keyframes tOut { to   { opacity:0; transform:translateX(-50%) translateY(-8px) } }
+@keyframes ctIn  { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:none } }
+@keyframes ctOut { to   { opacity:0; transform:translateY(6px) } }
+
+@media (max-width: 900px) {
+  .toast-copy, .toast-ss { bottom: 2.5rem; }
+}

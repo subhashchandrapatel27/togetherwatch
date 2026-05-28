@@ -1,0 +1,114 @@
+/* ── Side panel shell ── */
+.side {
+  display: flex;
+  flex-direction: column;
+  background: var(--s1);
+  overflow: hidden;
+}
+
+/* ── Tabs ── */
+.stabs {
+  display: flex;
+  border-bottom: 1px solid var(--b1);
+  flex-shrink: 0;
+}
+
+.stab {
+  flex: 1;
+  padding: .65rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: .66rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--ease);
+  font-family: var(--mono);
+  min-height: var(--tap);
+}
+.stab.on  { color: var(--acc); border-bottom-color: var(--acc); }
+.stab:hover:not(.on) { color: var(--txt); }
+
+/* ── Info box ── */
+.info-box {
+  background: var(--s2);
+  border: 1px solid var(--b1);
+  border-radius: var(--r);
+  padding: .75rem;
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+}
+.info-lbl {
+  color: var(--muted);
+  font-size: .62rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .7rem;
+  color: var(--muted);
+}
+.info-code { color: var(--acc); letter-spacing: .12em; font-weight: 600; }
+
+/* ── Screenshots section ── */
+.ss-section  { display: flex; flex-direction: column; gap: .5rem; }
+.ss-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.ss-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; }
+.ss-thumb {
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--b1);
+  aspect-ratio: 16/9;
+  background: var(--s3);
+}
+.ss-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ss-thumb:hover .ss-actions { opacity: 1; }
+.ss-actions {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  opacity: 0;
+  transition: opacity var(--ease);
+}
+.ss-time {
+  position: absolute;
+  bottom: .25rem;
+  left: .3rem;
+  font-size: .55rem;
+  background: rgba(0,0,0,.75);
+  color: rgba(255,255,255,.6);
+  padding: .1rem .3rem;
+  border-radius: 3px;
+}
+.ss-from-partner {
+  position: absolute;
+  top: .25rem;
+  left: .3rem;
+  font-size: .5rem;
+  background: rgba(245,197,24,.25);
+  color: var(--acc);
+  padding: .1rem .3rem;
+  border-radius: 3px;
+  border: 1px solid rgba(245,197,24,.3);
+}
+.ss-empty {
+  color: var(--muted);
+  font-size: .7rem;
+  text-align: center;
+  padding: 1rem 0;
+}

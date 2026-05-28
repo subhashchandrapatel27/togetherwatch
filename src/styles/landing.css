@@ -1,0 +1,139 @@
+/* ── Landing page ── */
+.land {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  gap: 2rem;
+  background:
+    radial-gradient(ellipse 80% 60% at 30% 10%, rgba(245,197,24,.06) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 75% 90%, rgba(230,168,0,.04) 0%, transparent 55%);
+  overflow-y: auto;
+}
+
+.land-logo {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .6rem;
+}
+
+.land-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  box-shadow: 0 0 48px var(--glow);
+}
+
+.land-title {
+  font-family: var(--serif);
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--txt) 30%, var(--acc));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.land-sub {
+  font-size: .72rem;
+  color: var(--muted);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+/* Landing theme toggle (top-right) */
+.land-theme-btn {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 99;
+}
+
+.card {
+  background: var(--s1);
+  border: 1px solid var(--b1);
+  border-radius: 16px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  box-shadow: 0 8px 40px rgba(0,0,0,.35);
+}
+
+.card-h {
+  font-family: var(--serif);
+  font-size: 1.3rem;
+  font-weight: 400;
+  text-align: center;
+  color: var(--txt);
+}
+
+.tabs2 { display: flex; gap: .5rem; }
+
+.tab2 {
+  flex: 1;
+  padding: .55rem;
+  border-radius: 8px;
+  font-size: .72rem;
+  border: 1px solid var(--b1);
+  background: transparent;
+  color: var(--muted);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  transition: all var(--ease);
+  min-height: var(--tap);
+}
+.tab2.on {
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  color: #000;
+  border-color: transparent;
+  font-weight: 600;
+  box-shadow: 0 3px 16px var(--glow);
+}
+.tab2:hover:not(.on) { color: var(--txt); border-color: var(--b2); }
+
+.tip {
+  color: var(--muted);
+  font-size: .72rem;
+  line-height: 1.8;
+  text-align: center;
+}
+
+/* ── Validation error ── */
+.land-err {
+  background: rgba(248,113,113,.1);
+  border: 1px solid rgba(248,113,113,.3);
+  border-radius: var(--r);
+  color: var(--err);
+  font-size: .75rem;
+  padding: .55rem .75rem;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.inp-err { border-color: rgba(248,113,113,.6) !important; }
+
+/* Light mode landing */
+[data-theme="light"] .land {
+  background:
+    radial-gradient(ellipse 80% 60% at 30% 10%, rgba(201,148,10,.08) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 75% 90%, rgba(168,122,0,.05) 0%, transparent 55%);
+}
+
+/* ── Mobile landing ── */
+@media (max-width: 480px) {
+  .land { padding: 1.5rem 1rem; gap: 1.5rem; }
+  .card { padding: 1.5rem 1.25rem; }
+  .land-icon { width: 56px; height: 56px; font-size: 1.6rem; }
+}

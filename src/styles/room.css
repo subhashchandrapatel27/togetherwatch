@@ -1,0 +1,159 @@
+/* ── Room shell ── */
+.room {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* ── Header ── */
+.hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .6rem 1.2rem;
+  border-bottom: 1px solid var(--b1);
+  background: var(--s1);
+  position: relative;
+  z-index: 50;
+  gap: .75rem;
+  flex-shrink: 0;
+  min-height: 52px;
+}
+
+.hdr-logo {
+  font-family: var(--serif);
+  font-size: 1.2rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--txt) 20%, var(--acc));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.hdr-mid {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+  flex: 1;
+  justify-content: center;
+}
+
+.room-code {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  color: var(--muted);
+  font-size: .7rem;
+  cursor: pointer;
+  transition: color var(--ease);
+  background: var(--s2);
+  border: 1px solid var(--b1);
+  border-radius: 6px;
+  padding: .3rem .6rem;
+  min-height: 30px;
+}
+.room-code:hover { color: var(--acc); border-color: var(--b2); }
+
+.hdr-right {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-shrink: 0;
+}
+
+/* Default: both toggles hidden on desktop */
+.hdr-panel-toggle { display: none; }
+.hdr-cams-toggle  { display: none; }
+
+/* ── Mobile header dropdown menu ── */
+.hdr-mobile-menu {
+  display: none; /* only visible on mobile via responsive.css */
+}
+
+
+/* ── Partner banner (partner only) ── */
+.partner-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .6rem;
+  padding: .5rem 1rem;
+  font-size: .72rem;
+  color: var(--muted);
+  background: rgba(245,197,24,.05);
+  border-bottom: 1px solid var(--b1);
+  flex-shrink: 0;
+  text-align: center;
+  flex-wrap: wrap;
+}
+.partner-banner b { color: var(--acc); }
+
+/* ── Main 2-column layout ── */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Player column ── */
+.pcol {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--b1);
+  min-height: 0;
+  position: relative;
+}
+
+/* ── Drop zone ── */
+.dropzone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  cursor: pointer;
+  transition: all var(--ease);
+  position: relative;
+  border: 2px dashed var(--b2);
+  margin: 1rem;
+  border-radius: 14px;
+  padding: 2rem 1rem;
+}
+.dropzone:hover,
+.dropzone.over {
+  border-color: var(--acc);
+  background: rgba(245,197,24,.04);
+}
+.dz-icon  { font-size: 3.5rem; opacity: .35; }
+.dz-title { font-family: var(--serif); font-size: 1.5rem; color: var(--txt); text-align: center; }
+.dz-sub   {
+  color: var(--muted);
+  font-size: .72rem;
+  text-align: center;
+  max-width: 280px;
+  line-height: 1.7;
+}
+.dz-btn { margin-top: .5rem; }
+
+/* ── Waiting screen ── */
+.wait-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  color: var(--muted);
+  padding: 2rem;
+}
+.wait-icon  { font-size: 3.5rem; opacity: .3; animation: pulse 2.5s ease infinite; }
+.wait-title { font-family: var(--serif); font-size: 1.4rem; color: var(--txt); text-align: center; }
+.wait-sub   { font-size: .72rem; text-align: center; max-width: 300px; line-height: 1.8; }

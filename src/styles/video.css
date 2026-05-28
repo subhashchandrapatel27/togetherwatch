@@ -1,0 +1,320 @@
+/* ── Video wrapper ── */
+.vwrap {
+  background: #000;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+.vwrap .main-vid {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  cursor: pointer;
+  position: absolute;
+  inset: 0;
+}
+
+/* Rotation helpers */
+.vwrap.rot90  .main-vid { transform: rotate(90deg)  scale(.56); }
+.vwrap.rot180 .main-vid { transform: rotate(180deg); }
+.vwrap.rot270 .main-vid { transform: rotate(270deg) scale(.56); }
+
+/* ── Subtitle overlay ── */
+.sub-overlay {
+  position: absolute;
+  bottom: 130px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,.82);
+  color: #fff;
+  padding: .35rem .9rem;
+  border-radius: 6px;
+  font-size: clamp(.85rem, 2.2vw, 1.05rem);
+  text-align: center;
+  max-width: 80%;
+  white-space: pre-wrap;
+  pointer-events: none;
+  z-index: 6;
+  text-shadow: 0 1px 4px rgba(0,0,0,.9);
+  line-height: 1.5;
+}
+.vwrap.is-fs .sub-overlay { bottom: 130px; }
+
+/* ── Screenshot flash ── */
+.ss-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  z-index: 300;
+  animation: ssFlash .3s ease forwards;
+  pointer-events: none;
+}
+@keyframes ssFlash { 0% { opacity: .6 } 100% { opacity: 0 } }
+
+/* ── Audio unlock overlay (partner) ── */
+.audio-unlock {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  background: rgba(0,0,0,.75);
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+.au-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  box-shadow: 0 0 48px var(--glow);
+  transition: transform .15s ease;
+  color: #000;
+}
+.audio-unlock:hover .au-icon,
+.audio-unlock:active .au-icon { transform: scale(1.1); }
+.au-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #fff;
+}
+.au-sub {
+  font-size: .72rem;
+  color: rgba(255,255,255,.55);
+  letter-spacing: .06em;
+}
+
+/* ─────────────────────────────────────────────
+   FULLSCREEN / LANDSCAPE CONTROLS OVERLAY
+───────────────────────────────────────────── */
+.fs-ctrl-wrap {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: linear-gradient(to top,
+    rgba(0,0,0,.96) 0%, rgba(0,0,0,.82) 50%,
+    rgba(0,0,0,.4) 80%, transparent 100%);
+  padding: 2.5rem 1.4rem 1.1rem;
+  transition: opacity .3s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+.vwrap.is-fs.ctrl-visible .fs-ctrl-wrap { opacity: 1; pointer-events: auto; }
+.vwrap.is-fs .fs-ctrl-wrap:hover         { opacity: 1; pointer-events: auto; }
+
+/* ── Outer controls bar (non-fullscreen) ── */
+.ctrl-bar-outer {
+  background: var(--s1);
+  border-top: 1px solid var(--b1);
+  padding: .65rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  flex-shrink: 0;
+}
+
+/* ── Seek bar row ── */
+.seek-row {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  margin-bottom: .4rem;
+}
+
+.seek {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--b2);
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+  transition: height var(--ease);
+}
+.seek:hover:not(:disabled) { height: 6px; }
+.seek:disabled { cursor: default; opacity: .5; }
+
+.seek::-webkit-slider-runnable-track {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(to right,
+    var(--acc) var(--pct, 0%),
+    var(--b2) var(--pct, 0%));
+}
+.seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 0 8px var(--glow);
+  cursor: pointer;
+  margin-top: -5px;
+}
+.seek::-moz-range-track {
+  background: linear-gradient(to right,
+    var(--acc) var(--pct, 0%),
+    var(--b2) var(--pct, 0%));
+  height: 4px;
+  border-radius: 2px;
+}
+.seek::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--acc);
+  border: none;
+  cursor: pointer;
+}
+
+.tl {
+  font-size: .68rem;
+  color: var(--muted);
+  white-space: nowrap;
+  min-width: 95px;
+  text-align: right;
+}
+
+/* ── Controls row ── */
+.ctrl-row {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  flex-wrap: nowrap;
+}
+
+.ctrl-c {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+}
+
+.ctrl-r {
+  display: flex;
+  align-items: center;
+  gap: .38rem;
+  margin-left: auto;
+}
+
+.ctrl-l { display: flex; align-items: center; gap: .4rem; }
+
+/* Play button — gold gradient */
+.play-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  border: none;
+  color: #000;
+  box-shadow: 0 2px 16px var(--glow);
+  font-weight: 700;
+}
+.play-btn:hover:not(:disabled) {
+  box-shadow: 0 3px 24px var(--glow);
+  transform: scale(1.06);
+}
+
+/* Volume */
+.vol-wrap { display: flex; align-items: center; gap: .45rem; }
+
+.vol {
+  width: 72px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--b2);
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+}
+.vol::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(to right,
+    var(--acc2) var(--vpct, 100%),
+    var(--b2) var(--vpct, 100%));
+}
+.vol::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--acc2);
+  cursor: pointer;
+  margin-top: -4.5px;
+}
+.vol::-moz-range-track {
+  background: linear-gradient(to right,
+    var(--acc2) var(--vpct, 100%),
+    var(--b2) var(--vpct, 100%));
+  height: 3px;
+  border-radius: 2px;
+}
+.vol::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--acc2);
+  border: none;
+}
+
+/* Speed selector */
+.spd {
+  background: var(--s2);
+  border: 1px solid var(--b2);
+  color: var(--txt);
+  border-radius: 6px;
+  padding: .28rem .5rem;
+  font-size: .7rem;
+  outline: none;
+  cursor: pointer;
+}
+.spd:focus    { border-color: var(--acc); }
+.spd option   { background: var(--s2); color: var(--txt); }
+
+/* Screenshot icon button — amber accent */
+.ic-btn-ss {
+  color: var(--acc3) !important;
+  border-color: rgba(255,140,0,.3) !important;
+}
+.ic-btn-ss:hover:not(:disabled) {
+  background: rgba(255,140,0,.15) !important;
+  border-color: var(--acc3) !important;
+}
+
+/* Partner controls row — simpler, single line */
+.ctrl-row-partner { padding: .1rem 0; }
+
+/* File name strip */
+.fname {
+  font-size: .62rem;
+  color: var(--muted);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-top: .3rem;
+  opacity: .6;
+}
