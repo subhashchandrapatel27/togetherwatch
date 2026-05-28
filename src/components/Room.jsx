@@ -145,6 +145,16 @@ export default function Room({ session, onLeave }) {
       if (candidate) emit("ice", { candidate: candidate.toJSON(), to: peerSocketId });
     };
 
+    /* Renegotiation — fires when tracks are added/removed on existing connection */
+    pc.onnegotiationneeded = async () => {
+      try {
+        if (pc.signalingState !== "stable" || !pc.remoteDescription) return;
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        emit("offer", { sdp: pc.localDescription, to: peerSocketIdRef.current });
+      } catch (e) {}
+    };
+
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === "connected") {
         pc.getSenders().forEach(sender => {
@@ -356,9 +366,21 @@ export default function Room({ session, onLeave }) {
         break;
       }
       case "offer": {
-        peerSocketIdRef.current = payload.from;
-        isInitiatorRef.current  = false;
-        await buildPC(payload.from, false, payload.sdp);
+        const existingPc = pcRef.current;
+        if (existingPc && existingPc.signalingState !== "closed" && existingPc.remoteDescription) {
+          /* Renegotiation on live connection — don't tear down, just exchange new SDP */
+          try {
+            await existingPc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+            const answer = await existingPc.createAnswer();
+            await existingPc.setLocalDescription(answer);
+            emit("answer", { sdp: existingPc.localDescription, to: payload.from });
+          } catch (e) {}
+        } else {
+          /* Fresh connection */
+          peerSocketIdRef.current = payload.from;
+          isInitiatorRef.current  = false;
+          await buildPC(payload.from, false, payload.sdp);
+        }
         break;
       }
       case "answer": {
@@ -680,12 +702,10 @@ export default function Room({ session, onLeave }) {
      WEBCAM
   ───────────────────────────────────────────── */
   const startCam = async () => {
-    // mediaDevices is only available in secure contexts (HTTPS or localhost)
     if (!navigator.mediaDevices?.getUserMedia) {
       alert(
         "Camera requires a secure connection.\n\n" +
-        "Open the app via HTTPS (the Vite dev server now uses https://) " +
-        "and accept the self-signed certificate warning on your device."
+        "Open the app via HTTPS and accept the self-signed certificate warning on your device."
       );
       return;
     }
@@ -695,7 +715,12 @@ export default function Room({ session, onLeave }) {
       const vid = localVidRef.current;
       if (vid) { vid.srcObject = stream; vid.play().catch(() => {}); }
       setCamOn(true);
-      if (peerSocketIdRef.current) {
+      if (!peerSocketIdRef.current) return;
+      const pc = pcRef.current;
+      if (pc && pc.signalingState !== "closed") {
+        /* Add tracks to the live connection — onnegotiationneeded handles renegotiation */
+        stream.getTracks().forEach(t => pc.addTrack(t, stream));
+      } else {
         await buildPC(peerSocketIdRef.current, isInitiatorRef.current);
       }
     } catch (err) {
@@ -708,14 +733,19 @@ export default function Room({ session, onLeave }) {
   };
 
   const stopCam = async () => {
+    const pc = pcRef.current;
+    if (pc && localStream.current) {
+      /* Remove only the camera/mic senders — movie stream senders stay untouched */
+      const trackIds = new Set(localStream.current.getTracks().map(t => t.id));
+      pc.getSenders()
+        .filter(s => s.track && trackIds.has(s.track.id))
+        .forEach(s => pc.removeTrack(s));
+    }
     localStream.current?.getTracks().forEach(t => t.stop());
     localStream.current = null;
     const vid = localVidRef.current;
     if (vid) { vid.srcObject = null; vid.load(); }
     setCamOn(false);
-    if (peerSocketIdRef.current) {
-      await buildPC(peerSocketIdRef.current, isInitiatorRef.current);
-    }
   };
 
   const toggleMic = () => {
