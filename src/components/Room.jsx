@@ -99,7 +99,7 @@ export default function Room({ session, onLeave }) {
   /* ─────────────────────────────────────────────
      SOCKET
   ───────────────────────────────────────────── */
-  const [emit, socketHandlerRef] = useSocket(roomId, name);
+  const [emit, socketHandlerRef] = useSocket(roomId, name, isHost);
 
   /* ─────────────────────────────────────────────
      WEBRTC

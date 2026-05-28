@@ -61,12 +61,12 @@ io.on('connection', (socket) => {
   let joinedRoom = null;
   let joinedName = null;
 
-  socket.on('join-room', ({ roomId, name }) => {
+  socket.on('join-room', ({ roomId, name, isHost: clientIsHost }) => {
     const room = getRoom(roomId);
     if (room.size >= 2) { socket.emit('room-full'); return; }
 
-    // First person in the room becomes the host
-    const isHost = room.size === 0;
+    // Use role declared by client (Create = host, Join = partner)
+    const isHost = clientIsHost ?? (room.size === 0);
     joinedRoom = roomId;
     joinedName = name;
     room.set(socket.id, { name, isHost });

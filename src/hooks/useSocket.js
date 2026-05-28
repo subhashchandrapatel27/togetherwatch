@@ -2,7 +2,7 @@ import { useRef, useEffect, useCallback } from "react";
 import { io } from "socket.io-client";
 import { SOCKET_URL } from "../constants/config.js";
 
-export function useSocket(roomId, name) {
+export function useSocket(roomId, name, isHost) {
   const socketRef  = useRef(null);
   const handlerRef = useRef(null);
 
@@ -10,7 +10,7 @@ export function useSocket(roomId, name) {
     if (!roomId) return;
     const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
     socketRef.current = socket;
-    socket.emit("join-room", { roomId, name });
+    socket.emit("join-room", { roomId, name, isHost });
     socket.onAny((event, payload) => {
       handlerRef.current?.(event, payload ?? {});
     });

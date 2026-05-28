@@ -1,18 +1,16 @@
 import { useState } from "react";
 import { uid } from "../utils/format.js";
-import { SOCKET_URL } from "../constants/config.js";
 import { useTheme } from "../hooks/useTheme.js";
 import { I } from "../icons/index.jsx";
 
 export default function Landing({ onEnter }) {
   const [theme, toggleTheme] = useTheme();
-  const [name,    setName]    = useState("");
-  const [roomId,  setRoomId]  = useState("");
-  const [mode,    setMode]    = useState("create");
-  const [checking, setChecking] = useState(false);
-  const [roomErr,  setRoomErr]  = useState("");
+  const [name,   setName]   = useState("");
+  const [roomId, setRoomId] = useState("");
+  const [mode,   setMode]   = useState("create");
+  const [roomErr, setRoomErr] = useState("");
 
-  const go = async () => {
+  const go = () => {
     const n = name.trim();
     const r = mode === "create" ? uid() : roomId.trim().toUpperCase();
 
@@ -20,30 +18,6 @@ export default function Landing({ onEnter }) {
     if (mode === "join" && !r) return setRoomErr("Please enter a room code.");
 
     setRoomErr("");
-
-    if (mode === "join") {
-      setChecking(true);
-      try {
-        const res  = await fetch(`${SOCKET_URL}/room/${r}`);
-        const data = await res.json();
-        if (!data.exists) {
-          setRoomErr("Room not found. Check the code and try again.");
-          setChecking(false);
-          return;
-        }
-        if (data.full) {
-          setRoomErr("Room is full (max 2 users). Try a different code.");
-          setChecking(false);
-          return;
-        }
-      } catch {
-        setRoomErr("Cannot reach the server. Make sure it is running.");
-        setChecking(false);
-        return;
-      }
-      setChecking(false);
-    }
-
     onEnter({ name: n, roomId: r, isHost: mode === "create" });
   };
 
@@ -106,12 +80,8 @@ export default function Landing({ onEnter }) {
 
         {roomErr && <div className="land-err">{roomErr}</div>}
 
-        <button className="btn btn-p" onClick={go} disabled={checking}>
-          {checking
-            ? "⏳ Checking room…"
-            : mode === "create"
-            ? "✨ Create Room & Host"
-            : "→ Join & Watch"}
+        <button className="btn btn-p" onClick={go}>
+          {mode === "create" ? "✨ Create Room & Host" : "→ Join & Watch"}
         </button>
 
         <div className="divdr">how it works</div>
