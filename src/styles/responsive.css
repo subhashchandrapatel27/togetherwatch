@@ -150,6 +150,11 @@
 
 /* ── Large phone / small phone portrait (≤ 600px) ── */
 @media (max-width: 600px) {
+  /* Fix 3: pip cameras always visible on phone — native iOS fullscreen hides
+     overlay elements so we keep them showing at all times instead of
+     only-in-fullscreen, giving a FaceTime-style always-on cam overlay. */
+  .pip-wrap { opacity: 1 !important; pointer-events: auto !important; }
+
   .cam-grid { grid-template-columns: 1fr 1fr; gap: .4rem; }
   .ss-grid  { grid-template-columns: 1fr 1fr; }
 

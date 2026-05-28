@@ -27,7 +27,8 @@ export default function Room({ session, onLeave }) {
   const blobUrlRef        = useRef(null);
   const canvasRef         = useRef(document.createElement("canvas")); // screenshot canvas
   const streamCanvasRef   = useRef(document.createElement("canvas")); // color-accurate capture
-  const streamRafRef      = useRef(null);
+  const streamRafRef          = useRef(null);
+  const remoteMovieStreamRef  = useRef(null); // mirror of state for use in event handlers
   /* ── WebRTC refs ── */
   const pcRef              = useRef(null);
   const peerSocketIdRef    = useRef(null);
@@ -389,6 +390,14 @@ export default function Room({ session, onLeave }) {
         for (const c of pendingIceRef.current)
           await pc.addIceCandidate(new RTCIceCandidate(c)).catch(() => {});
         pendingIceRef.current = [];
+        /* Apply bitrate to all video senders — covers camera tracks added via renegotiation */
+        pc.getSenders().forEach(sender => {
+          if (sender.track?.kind !== "video") return;
+          const params = sender.getParameters();
+          if (!params.encodings?.length) params.encodings = [{}];
+          params.encodings[0].maxBitrate = 8_000_000;
+          sender.setParameters(params).catch(() => {});
+        });
         break;
       }
       case "ice": {
@@ -467,18 +476,55 @@ export default function Room({ session, onLeave }) {
     setActiveSub(s ? s.text : "");
   }, [curTime, subtitles, isHost]);
 
-  /* Fullscreen tracking — cover both standard and WebKit (iOS Safari) */
+  /* Keep ref in sync so event handlers always see the latest stream */
+  useEffect(() => { remoteMovieStreamRef.current = remoteMovieStream; }, [remoteMovieStream]);
+
+  /* Fullscreen tracking — standard + WebKit document events */
   useEffect(() => {
-    const h = () => setFullscreen(
-      !!(document.fullscreenElement || document.webkitFullscreenElement)
-    );
+    const reattach = () => {
+      /* Fix 1: re-attach partner movie stream if iOS/browser cleared srcObject on exit */
+      if (isHost) return;
+      const v = videoRef.current || document.getElementById("main-video");
+      if (!v) return;
+      const ms = remoteMovieStreamRef.current;
+      if (!ms) return;
+      if (!v.srcObject) { v.srcObject = ms; v.play().catch(() => setAudioLocked(true)); }
+      else if (v.paused)  { v.play().catch(() => {}); }
+    };
+    const h = () => {
+      const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      setFullscreen(isFs);
+      if (!isFs) reattach();
+    };
     document.addEventListener("fullscreenchange",       h);
     document.addEventListener("webkitfullscreenchange", h);
     return () => {
       document.removeEventListener("fullscreenchange",       h);
       document.removeEventListener("webkitfullscreenchange", h);
     };
-  }, []);
+  }, [isHost]);
+
+  /* Fix 1 + Fix 3: iOS native video fullscreen (webkitEnterFullscreen path)
+     Re-binds every render so it always targets the live DOM element. */
+  useEffect(() => {
+    const v = document.getElementById("main-video");
+    if (!v) return;
+    const onBegin = () => setFullscreen(true);
+    const onEnd = () => {
+      setFullscreen(false);
+      if (!isHost) {
+        const ms = remoteMovieStreamRef.current;
+        if (ms && !v.srcObject) { v.srcObject = ms; v.play().catch(() => setAudioLocked(true)); }
+        else if (ms && v.paused)  { v.play().catch(() => {}); }
+      }
+    };
+    v.addEventListener("webkitbeginfullscreen", onBegin);
+    v.addEventListener("webkitendfullscreen",   onEnd);
+    return () => {
+      v.removeEventListener("webkitbeginfullscreen", onBegin);
+      v.removeEventListener("webkitendfullscreen",   onEnd);
+    };
+  });
 
   /* Auto-hide controls in fullscreen */
   const revealControls = useCallback(() => {
@@ -710,7 +756,12 @@ export default function Room({ session, onLeave }) {
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { frameRate: { ideal: 60, max: 60 }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true,
+      });
+      /* Fix 2: honour current mute state so UI and track state stay in sync */
+      stream.getAudioTracks().forEach(t => { t.enabled = micOn; });
       localStream.current = stream;
       const vid = localVidRef.current;
       if (vid) { vid.srcObject = stream; vid.play().catch(() => {}); }
