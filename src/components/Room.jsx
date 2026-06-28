@@ -519,6 +519,28 @@ export default function Room({ session, onLeave }) {
   /* Keep ref in sync so event handlers always see the latest stream */
   useEffect(() => { remoteMovieStreamRef.current = remoteMovieStream; }, [remoteMovieStream]);
 
+  /* CSS fullscreen helpers — must be defined BEFORE the fullscreen tracking effect uses them */
+  const enterCssFs = useCallback(() => {
+    cssFsRef.current = true;
+    setCssFs(true);
+    setFullscreen(true);
+    const ssVid   = document.getElementById("screen-share-video");
+    const mainVid = videoRef.current || document.getElementById("main-video");
+    const active  = (ssVid?.videoWidth > 0) ? ssVid : mainVid;
+    if (screen.orientation?.lock && active?.videoWidth) {
+      const orient = active.videoWidth >= active.videoHeight ? "landscape" : "portrait";
+      screen.orientation.lock(orient).catch(() => {});
+    }
+  }, []);
+
+  const exitCssFs = useCallback(() => {
+    if (!cssFsRef.current) return;
+    cssFsRef.current = false;
+    setCssFs(false);
+    setFullscreen(false);
+    screen.orientation?.unlock?.();
+  }, []);
+
   /* Fullscreen tracking — standard + WebKit document events */
   useEffect(() => {
     /* Pick the active video element for orientation detection:
@@ -718,29 +740,6 @@ export default function Room({ session, onLeave }) {
     const v = videoRef.current; if (!v) return;
     v.playbackRate = s; setSpeed(s); emit("speed", { speed: s });
   }, [isHost, emit]);
-
-  /* CSS fullscreen helpers — used when native fullscreen API is unavailable (iOS, some Android) */
-  const enterCssFs = useCallback(() => {
-    cssFsRef.current = true;
-    setCssFs(true);
-    setFullscreen(true);
-    // Orientation lock for CSS fullscreen
-    const ssVid  = document.getElementById("screen-share-video");
-    const mainVid = videoRef.current || document.getElementById("main-video");
-    const active  = (ssVid?.videoWidth > 0) ? ssVid : mainVid;
-    if (screen.orientation?.lock && active?.videoWidth) {
-      const orient = active.videoWidth >= active.videoHeight ? "landscape" : "portrait";
-      screen.orientation.lock(orient).catch(() => {});
-    }
-  }, []);
-
-  const exitCssFs = useCallback(() => {
-    if (!cssFsRef.current) return;
-    cssFsRef.current = false;
-    setCssFs(false);
-    setFullscreen(false);
-    screen.orientation?.unlock?.();
-  }, []);
 
   const toggleFs = useCallback(() => {
     const isNativeFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
