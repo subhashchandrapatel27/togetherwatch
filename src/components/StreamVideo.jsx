@@ -8,14 +8,24 @@ export default function StreamVideo({ stream, muted = false, volume = 1, classNa
     if (!vid) return;
     if (stream) {
       vid.srcObject = stream;
-      vid.play().catch(() => {});
+      vid.muted = muted; // set property directly — JSX muted attr is unreliable in React
+      vid.play().catch(() => {
+        if (!muted) {
+          // Browser blocked audio autoplay — play muted first, then unmute
+          vid.muted = true;
+          vid.play().then(() => { vid.muted = false; }).catch(() => {});
+        }
+      });
     } else {
       vid.srcObject = null;
     }
-  }, [stream]);
+  }, [stream]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (vidRef.current && !muted) vidRef.current.volume = Math.max(0, Math.min(1, volume));
+    const vid = vidRef.current;
+    if (!vid) return;
+    vid.muted = muted;
+    if (!muted) vid.volume = Math.max(0, Math.min(1, volume));
   }, [volume, muted]);
 
   return (

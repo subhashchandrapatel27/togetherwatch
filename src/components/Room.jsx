@@ -30,6 +30,7 @@ export default function Room({ session, onLeave }) {
   const streamRafRef           = useRef(null);
   const remoteMovieStreamRef   = useRef(null);
   const screenStreamRef        = useRef(null);
+  const screenShareMicRef      = useRef(null);
   const remoteScreenStreamIdRef = useRef(null);
   /* ── WebRTC refs ── */
   const pcRef              = useRef(null);
@@ -456,8 +457,13 @@ export default function Room({ session, onLeave }) {
     if (!v) return;
     if (remoteScreenStream) {
       v.srcObject = remoteScreenStream;
+      v.muted = false; // must set property — attribute alone is unreliable
       v.volume = Math.max(0, Math.min(1, screenShareVolume));
-      v.play().catch(() => {});
+      v.play().catch(() => {
+        // Autoplay blocked with audio — play muted first then unmute
+        v.muted = true;
+        v.play().then(() => { v.muted = false; }).catch(() => {});
+      });
     } else {
       v.srcObject = null;
     }
@@ -638,9 +644,13 @@ export default function Room({ session, onLeave }) {
   const startWatching = useCallback(() => {
     const v = videoRef.current;
     if (v) v.play().catch(() => {});
-    // Unlock any other video elements that may be blocked (camera streams)
+    // Unlock camera and screen-share video elements — play any paused ones, unmute any
+    // that the browser started muted due to autoplay policy
     document.querySelectorAll("video").forEach(vid => {
-      if (vid !== v && vid.paused && vid.srcObject) vid.play().catch(() => {});
+      if (vid === v || vid === localVidRef.current) return; // skip movie & local preview
+      if (!vid.srcObject) return;
+      if (vid.paused) vid.play().catch(() => {});
+      if (vid.muted) vid.muted = false; // unmute audio that was blocked on mount
     });
     setAudioLocked(false);
   }, []);
@@ -953,12 +963,15 @@ export default function Room({ session, onLeave }) {
     if (!stream) return;
     const pc = pcRef.current;
     if (pc) {
-      const ids = new Set(stream.getTracks().map(t => t.id));
+      const micTracks = screenShareMicRef.current?.getTracks() ?? [];
+      const ids = new Set([...stream.getTracks(), ...micTracks].map(t => t.id));
       pc.getSenders()
         .filter(s => s.track && ids.has(s.track.id))
         .forEach(s => pc.removeTrack(s));
     }
     stream.getTracks().forEach(t => t.stop());
+    screenShareMicRef.current?.getTracks().forEach(t => t.stop());
+    screenShareMicRef.current = null;
     screenStreamRef.current = null;
     setScreenSharing(false);
     emit("screen-share-stop", {});
@@ -975,31 +988,52 @@ export default function Room({ session, onLeave }) {
         video: { frameRate: { ideal: 60, max: 60 }, cursor: "always" },
         audio: true,
       });
+
+      // Capture mic audio separately — getDisplayMedia only captures system audio, not the
+      // host's voice. Only needed when camera is off; camera stream already carries mic audio.
+      let micStream = null;
+      if (!localStream.current) {
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        } catch (_) {
+          // Mic permission denied — screen share continues without mic voice
+        }
+      }
+      screenShareMicRef.current = micStream;
+
       screenStreamRef.current = stream;
       const pc = pcRef.current;
       if (pc && pc.signalingState !== "closed") {
         stream.getTracks().forEach(t => pc.addTrack(t, stream));
+        // Add mic audio into the same stream so partner hears host's voice
+        micStream?.getAudioTracks().forEach(t => pc.addTrack(t, stream));
       }
       emit("screen-share", { streamId: stream.id });
       setScreenSharing(true);
       setMsgs(p => [...p, { id: Date.now(), type: "sys", text: "🖥 You started screen sharing" }]);
-      /* Handle "Stop sharing" button in browser chrome */
-      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+
+      const cleanupScreenShare = () => {
         const s = screenStreamRef.current;
         if (!s) return;
         const pc2 = pcRef.current;
         if (pc2) {
-          const ids = new Set(s.getTracks().map(t => t.id));
+          const micTracks = screenShareMicRef.current?.getTracks() ?? [];
+          const ids = new Set([...s.getTracks(), ...micTracks].map(t => t.id));
           pc2.getSenders()
             .filter(s2 => s2.track && ids.has(s2.track.id))
             .forEach(s2 => pc2.removeTrack(s2));
         }
         s.getTracks().forEach(t => t.stop());
+        screenShareMicRef.current?.getTracks().forEach(t => t.stop());
+        screenShareMicRef.current = null;
         screenStreamRef.current = null;
         setScreenSharing(false);
         emit("screen-share-stop", {});
         setMsgs(p => [...p, { id: Date.now(), type: "sys", text: "🖥 You stopped screen sharing" }]);
-      });
+      };
+
+      /* Handle "Stop sharing" button in browser chrome */
+      stream.getVideoTracks()[0]?.addEventListener("ended", cleanupScreenShare);
     } catch (e) {
       if (e.name !== "NotAllowedError") alert("Screen sharing failed: " + (e.message || e));
     }

@@ -107,15 +107,15 @@ const VideoSection = forwardRef(function VideoSection(
           <div className="sub-overlay">{activeSub}</div>
         )}
 
-        {/* Received screen share — overlays the main video */}
-        {remoteScreenStream && (
-          <video
-            id="screen-share-video"
-            autoPlay
-            playsInline
-            className="screen-share-vid"
-          />
-        )}
+        {/* Received screen share — always in DOM so audio autoplay context is preserved;
+            hidden via CSS when no stream is active */}
+        <video
+          id="screen-share-video"
+          autoPlay
+          playsInline
+          className="screen-share-vid"
+          style={{ display: remoteScreenStream ? undefined : "none" }}
+        />
 
         {/* Host screen sharing active — show status overlay when no movie file */}
         {screenSharing && !hasFile && (
