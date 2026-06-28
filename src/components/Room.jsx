@@ -556,13 +556,20 @@ export default function Room({ session, onLeave }) {
       screen.orientation.lock(orient).catch(() => {});
     };
     const reattach = () => {
-      if (isHost) return;
-      const v = videoRef.current || document.getElementById("main-video");
-      if (!v) return;
-      const ms = remoteMovieStreamRef.current;
-      if (!ms) return;
-      if (!v.srcObject) { v.srcObject = ms; v.play().catch(() => setAudioLocked(true)); }
-      else if (v.paused)  { v.play().catch(() => {}); }
+      // Re-attach and resume all video sources after exiting fullscreen.
+      // Some browsers (iOS, Android) pause or clear WebRTC streams on fullscreen exit.
+      // Do NOT set audioLocked — the user gesture that exited fullscreen is sufficient.
+      if (!isHost) {
+        const mainVid = videoRef.current || document.getElementById("main-video");
+        const ms = remoteMovieStreamRef.current;
+        if (mainVid && ms) {
+          if (!mainVid.srcObject) mainVid.srcObject = ms;
+          if (mainVid.paused) mainVid.play().catch(() => {});
+        }
+      }
+      // Always try to resume screen share video regardless of role
+      const ssVid = document.getElementById("screen-share-video");
+      if (ssVid && ssVid.srcObject && ssVid.paused) ssVid.play().catch(() => {});
     };
     const h = () => {
       const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -595,11 +602,16 @@ export default function Room({ session, onLeave }) {
     const onEnd = () => {
       setFullscreen(false);
       screen.orientation?.unlock?.();
+      // iOS native player exits — resume any paused WebRTC streams without triggering audioLocked
       if (!isHost) {
         const ms = remoteMovieStreamRef.current;
-        if (ms && !v.srcObject) { v.srcObject = ms; v.play().catch(() => setAudioLocked(true)); }
-        else if (ms && v.paused)  { v.play().catch(() => {}); }
+        if (ms) {
+          if (!v.srcObject) v.srcObject = ms;
+          if (v.paused) v.play().catch(() => {});
+        }
       }
+      const ssVid = document.getElementById("screen-share-video");
+      if (ssVid && ssVid.srcObject && ssVid.paused) ssVid.play().catch(() => {});
     };
     v.addEventListener("webkitbeginfullscreen", onBegin);
     v.addEventListener("webkitendfullscreen",   onEnd);
@@ -788,8 +800,18 @@ export default function Room({ session, onLeave }) {
      SCREENSHOT
   ───────────────────────────────────────────── */
   const takeScreenshot = useCallback(async () => {
-    const v = videoRef.current;
-    if (!v || !hasFile || v.readyState < 2) { alert("No video to screenshot yet."); return; }
+    const ssVid  = document.getElementById("screen-share-video");
+    const mainVid = videoRef.current || document.getElementById("main-video");
+
+    // Prefer screen share video when it has a frame; fall back to movie video
+    const isScreenShare = !!(ssVid && ssVid.videoWidth > 0 && ssVid.readyState >= 2);
+    const targetVid = isScreenShare ? ssVid : mainVid;
+
+    if (!targetVid || (!hasFile && !isScreenShare) || targetVid.readyState < 2) {
+      alert("No video to screenshot yet.");
+      return;
+    }
+
     const time = curTime;
     setSsFlash(true);
     setTimeout(() => setSsFlash(false), 350);
@@ -797,7 +819,6 @@ export default function Room({ session, onLeave }) {
     const addAndShare = (dataUrl) => {
       setScreenshots(prev => [{ id: Date.now(), dataUrl, time }, ...prev].slice(0, 20));
       setSsToast(true); setTimeout(() => setSsToast(false), 2200);
-      // Compress to JPEG and send to partner
       const img = new Image();
       img.onload = () => {
         const scale = Math.min(1, 1280 / img.width, 720 / img.height);
@@ -810,6 +831,17 @@ export default function Room({ session, onLeave }) {
       img.src = dataUrl;
     };
 
+    if (isScreenShare) {
+      // Direct canvas capture for screen share — simpler and more reliable than html2canvas
+      const canvas = canvasRef.current;
+      canvas.width  = targetVid.videoWidth  || 1920;
+      canvas.height = targetVid.videoHeight || 1080;
+      canvas.getContext("2d").drawImage(targetVid, 0, 0, canvas.width, canvas.height);
+      addAndShare(canvas.toDataURL("image/png"));
+      return;
+    }
+
+    // Movie video — use html2canvas for a full composite screenshot
     try {
       if (!window.html2canvas) {
         await new Promise((res, rej) => {
@@ -826,9 +858,9 @@ export default function Room({ session, onLeave }) {
         onclone: (doc) => {
           doc.querySelectorAll("video.main-vid").forEach(cv => {
             const c = doc.createElement("canvas");
-            c.width  = v.videoWidth  || cv.clientWidth  || 1280;
-            c.height = v.videoHeight || cv.clientHeight || 720;
-            c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+            c.width  = targetVid.videoWidth  || cv.clientWidth  || 1280;
+            c.height = targetVid.videoHeight || cv.clientHeight || 720;
+            c.getContext("2d").drawImage(targetVid, 0, 0, c.width, c.height);
             c.style.cssText = cv.style.cssText +
               ";width:100%;height:100%;object-fit:contain;position:absolute;inset:0";
             cv.parentNode?.replaceChild(c, cv);
@@ -838,9 +870,9 @@ export default function Room({ session, onLeave }) {
       addAndShare(canvas.toDataURL("image/png"));
     } catch {
       const canvas = canvasRef.current;
-      canvas.width  = v.videoWidth  || 1280;
-      canvas.height = v.videoHeight || 720;
-      canvas.getContext("2d").drawImage(v, 0, 0, canvas.width, canvas.height);
+      canvas.width  = targetVid.videoWidth  || 1280;
+      canvas.height = targetVid.videoHeight || 720;
+      canvas.getContext("2d").drawImage(targetVid, 0, 0, canvas.width, canvas.height);
       addAndShare(canvas.toDataURL("image/png"));
     }
   }, [hasFile, curTime, emit]);
