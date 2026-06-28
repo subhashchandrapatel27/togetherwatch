@@ -16,6 +16,7 @@ const VideoSection = forwardRef(function VideoSection(
     onDragOver, onDragLeave, onDrop, onClickDropzone, onLoadMovie,
     keepVisible, revealControls,
     audioLocked, onStartWatching,
+    screenSharing, remoteScreenStream, cssFs,
   },
   wrapRef
 ) {
@@ -25,8 +26,8 @@ const VideoSection = forwardRef(function VideoSection(
 
   return (
     <div className="pcol">
-      {/* Host: drop zone when no file loaded */}
-      {isHost && !hasFile && (
+      {/* Host: drop zone when no file loaded and not screen sharing */}
+      {isHost && !hasFile && !screenSharing && (
         <div
           className={`dropzone${dragOver ? " over" : ""}`}
           onDragOver={onDragOver}
@@ -41,17 +42,26 @@ const VideoSection = forwardRef(function VideoSection(
             <br />
             Your partner will receive the stream automatically.
           </div>
-          <button
-            className="btn btn-o btn-sm dz-btn"
-            onClick={(e) => { e.stopPropagation(); onLoadMovie(); }}
-          >
-            {I.Load} Browse Files
-          </button>
+          <div className="dz-actions" onClick={(e) => e.stopPropagation()}>
+            <button
+              className="btn btn-o btn-sm dz-btn"
+              onClick={onLoadMovie}
+            >
+              {I.Load} Browse Files
+            </button>
+            <div className="dz-or">or</div>
+            <button
+              className="btn btn-p btn-sm dz-btn"
+              onClick={ctrlProps.onStartScreenShare}
+            >
+              {I.ScreenShare} Share Screen
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Partner: waiting screen */}
-      {!isHost && !hasFile && (
+      {/* Partner: waiting screen — hide when receiving screen share */}
+      {!isHost && !hasFile && !remoteScreenStream && (
         <div className="wait-screen">
           <div className="wait-icon">📡</div>
           <div className="wait-title">Waiting for host</div>
@@ -72,10 +82,11 @@ const VideoSection = forwardRef(function VideoSection(
           rotCls,
           fullscreen ? "is-fs" : "",
           ctrlVisible ? "ctrl-visible" : "",
+          cssFs ? "css-fs" : "",
         ]
           .filter(Boolean)
           .join(" ")}
-        style={{ display: hasFile ? "flex" : "none" }}
+        style={{ display: (hasFile || remoteScreenStream || screenSharing) ? "flex" : "none" }}
         onMouseMove={fullscreen ? revealControls : undefined}
         onTouchStart={fullscreen ? revealControls : undefined}
         onClick={fullscreen ? revealControls : undefined}
@@ -96,6 +107,37 @@ const VideoSection = forwardRef(function VideoSection(
           <div className="sub-overlay">{activeSub}</div>
         )}
 
+        {/* Received screen share — overlays the main video */}
+        {remoteScreenStream && (
+          <video
+            id="screen-share-video"
+            autoPlay
+            playsInline
+            className="screen-share-vid"
+          />
+        )}
+
+        {/* Host screen sharing active — show status overlay when no movie file */}
+        {screenSharing && !hasFile && (
+          <div className="screen-share-active">
+            <div className="ssa-icon">🖥</div>
+            <div className="ssa-title">Screen sharing active</div>
+            <div className="ssa-sub">Your partner can see your screen</div>
+            <button
+              className="btn btn-d btn-sm"
+              style={{ marginTop: ".75rem" }}
+              onClick={ctrlProps.onStopScreenShare}
+            >
+              {I.ScreenShareOff} Stop Sharing
+            </button>
+          </div>
+        )}
+
+        {/* "You are sharing" badge shown to the sharer when movie is also loaded */}
+        {screenSharing && hasFile && (
+          <div className="sharing-badge">🖥 Sharing your screen</div>
+        )}
+
         {/* Partner audio-unlock overlay — required by browser autoplay policy */}
         {!isHost && audioLocked && (
           <div className="audio-unlock" onClick={onStartWatching}>
@@ -105,8 +147,8 @@ const VideoSection = forwardRef(function VideoSection(
           </div>
         )}
 
-        {/* PiP camera overlays */}
-        <div className={`pip-wrap${fullscreen ? " show" : ""}`}>
+        {/* PiP camera overlays — show in fullscreen OR during any screen sharing */}
+        <div className={`pip-wrap${(fullscreen || screenSharing || !!remoteScreenStream) ? " show" : ""}`}>
           <PipTile
             stream={localStream}
             label={`${name} (you)`}
@@ -145,7 +187,7 @@ const VideoSection = forwardRef(function VideoSection(
       </div>
 
       {/* Outer controls bar (non-fullscreen) */}
-      {hasFile && !fullscreen && (
+      {(hasFile || screenSharing || remoteScreenStream) && !fullscreen && (
         <div className="ctrl-bar-outer">
           <ControlsBar {...ctrlProps} />
         </div>

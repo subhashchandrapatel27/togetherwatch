@@ -8,6 +8,7 @@ export default function CamPanel({
   localStream, remoteStream, remoteMovieStream, hostMovieLoaded,
   camOn, micOn, isHost, roomId,
   screenshots,
+  remoteVolume = 1, onRemoteVolumeChange,
   onStartCam, onStopCam, onToggleMic, onScreenshot, onCopyCode,
   onDlScreenshot, onDelScreenshot, onClearScreenshots,
 }) {
@@ -30,6 +31,7 @@ export default function CamPanel({
             <>
               <StreamVideo
                 stream={remoteStream}
+                volume={remoteVolume}
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
               <div className="tile-lbl">{partner}</div>
@@ -67,6 +69,24 @@ export default function CamPanel({
           {I.SS}
         </button>
       </div>
+
+      {/* Partner camera volume */}
+      {pOnline && remoteHasCam && (
+        <div className="vol-wrap" style={{ padding: ".1rem 0" }}>
+          <span style={{ fontSize: ".6rem", color: "var(--muted)", whiteSpace: "nowrap" }}>
+            🎙 {partner} vol
+          </span>
+          <input
+            type="range"
+            className="vol"
+            style={{ flex: 1, "--vpct": `${remoteVolume * 100}%` }}
+            min={0} max={1} step={0.01}
+            value={remoteVolume}
+            onChange={(e) => onRemoteVolumeChange(parseFloat(e.target.value))}
+            title="Partner camera volume"
+          />
+        </div>
+      )}
 
       {/* Room status */}
       <div className="info-box">

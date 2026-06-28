@@ -94,7 +94,7 @@ io.on('connection', (socket) => {
   });
 
   // Video sync + screenshot relay
-  for (const ev of ['play', 'pause', 'seek', 'speed', 'chat', 'screenshot']) {
+  for (const ev of ['play', 'pause', 'seek', 'speed', 'chat', 'screenshot', 'screen-share', 'screen-share-stop']) {
     socket.on(ev, (payload) => {
       if (joinedRoom) socket.to(joinedRoom).emit(ev, payload);
     });

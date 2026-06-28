@@ -11,9 +11,7 @@
   min-height: 0;
 }
 
-/* Fullscreen: override every mobile sizing constraint so the video
-   fills the entire viewport. object-fit:contain on the video element
-   maintains aspect ratio with black bars — no cropping, no stretching. */
+/* Native fullscreen: override every mobile sizing constraint */
 .vwrap:fullscreen,
 .vwrap:-webkit-full-screen {
   width: 100vw   !important;
@@ -22,6 +20,18 @@
   flex: none !important;
   top: 0 !important;
   left: 0 !important;
+}
+
+/* CSS fallback fullscreen — used when native fullscreen API is unavailable (iOS, some Android).
+   position:fixed takes the element out of flow and covers the whole viewport. */
+.vwrap.css-fs {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9998 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  aspect-ratio: unset !important;
+  flex: none !important;
 }
 
 .vwrap .main-vid {
@@ -40,6 +50,59 @@
 .vwrap.rot90  .main-vid { transform: rotate(90deg)  scale(.56); }
 .vwrap.rot180 .main-vid { transform: rotate(180deg); }
 .vwrap.rot270 .main-vid { transform: rotate(270deg) scale(.56); }
+
+/* ── Screen share overlay (received stream) ── */
+.screen-share-vid {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  z-index: 4;
+  background: #000;
+}
+
+/* ── "You are sharing screen" badge ── */
+.sharing-badge {
+  position: absolute;
+  top: .75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(34, 197, 94, .15);
+  border: 1px solid rgba(34, 197, 94, .4);
+  color: var(--ok);
+  padding: .28rem .9rem;
+  border-radius: 20px;
+  font-size: .65rem;
+  z-index: 10;
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+  letter-spacing: .04em;
+  pointer-events: none;
+}
+
+/* Screen share button — green when active */
+.ic-btn-sharing {
+  color: var(--ok) !important;
+  border-color: rgba(34,197,94,.4) !important;
+  background: rgba(34,197,94,.1) !important;
+}
+
+/* ── Screen share active overlay (host, no movie file) ── */
+.screen-share-active {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .6rem;
+  background: rgba(0,0,0,.85);
+  z-index: 3;
+}
+.ssa-icon  { font-size: 3rem; opacity: .7; }
+.ssa-title { font-size: 1.1rem; font-weight: 600; color: var(--ok); }
+.ssa-sub   { font-size: .72rem; color: var(--muted); }
 
 /* ── Subtitle overlay ── */
 .sub-overlay {

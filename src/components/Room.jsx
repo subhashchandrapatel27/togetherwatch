@@ -21,14 +21,16 @@ export default function Room({ session, onLeave }) {
   const hideTimer     = useRef(null);
 
   /* ── Stream refs ── */
-  const localStream       = useRef(null);
-  const movieStreamRef    = useRef(null);
-  const movieStreamIdRef  = useRef(null);
-  const blobUrlRef        = useRef(null);
-  const canvasRef         = useRef(document.createElement("canvas")); // screenshot canvas
-  const streamCanvasRef   = useRef(document.createElement("canvas")); // color-accurate capture
-  const streamRafRef          = useRef(null);
-  const remoteMovieStreamRef  = useRef(null); // mirror of state for use in event handlers
+  const localStream            = useRef(null);
+  const movieStreamRef         = useRef(null);
+  const movieStreamIdRef       = useRef(null);
+  const blobUrlRef             = useRef(null);
+  const canvasRef              = useRef(document.createElement("canvas"));
+  const streamCanvasRef        = useRef(document.createElement("canvas"));
+  const streamRafRef           = useRef(null);
+  const remoteMovieStreamRef   = useRef(null);
+  const screenStreamRef        = useRef(null);
+  const remoteScreenStreamIdRef = useRef(null);
   /* ── WebRTC refs ── */
   const pcRef              = useRef(null);
   const peerSocketIdRef    = useRef(null);
@@ -75,6 +77,12 @@ export default function Room({ session, onLeave }) {
   const [hostMovieLoaded,   setHostMovieLoaded]   = useState(false);
   const [panelOpen,         setPanelOpen]         = useState(false);
   const [audioLocked,       setAudioLocked]       = useState(false);
+  const [screenSharing,      setScreenSharing]      = useState(false);
+  const [remoteScreenStream, setRemoteScreenStream]  = useState(null);
+  const [remoteVolume,       setRemoteVolume]        = useState(1);
+  const [screenShareVolume,  setScreenShareVolume]   = useState(1);
+  const [cssFs,              setCssFs]               = useState(false);
+  const cssFsRef = useRef(false);
 
   /* ── Internal ── */
   const ignoreRef  = useRef(false);
@@ -131,14 +139,12 @@ export default function Room({ session, onLeave }) {
       if (!streams?.length) return;
       const stream = streams[0];
       receivedStreamsRef.current.set(stream.id, stream);
-      if (isHost) {
-        setRemoteStream(stream);
+      if (remoteScreenStreamIdRef.current && stream.id === remoteScreenStreamIdRef.current) {
+        setRemoteScreenStream(stream);
+      } else if (!isHost && remoteMovieIdRef.current && stream.id === remoteMovieIdRef.current) {
+        setRemoteMovieStream(stream);
       } else {
-        if (remoteMovieIdRef.current && stream.id === remoteMovieIdRef.current) {
-          setRemoteMovieStream(stream);
-        } else {
-          setRemoteStream(stream);
-        }
+        setRemoteStream(stream);
       }
     };
 
@@ -162,7 +168,7 @@ export default function Room({ session, onLeave }) {
           if (sender.track?.kind !== "video") return;
           const params = sender.getParameters();
           if (!params.encodings?.length) params.encodings = [{}];
-          params.encodings[0].maxBitrate = 8_000_000;
+          params.encodings[0].maxBitrate = 20_000_000;
           sender.setParameters(params).catch(() => {});
         });
       }
@@ -395,7 +401,7 @@ export default function Room({ session, onLeave }) {
           if (sender.track?.kind !== "video") return;
           const params = sender.getParameters();
           if (!params.encodings?.length) params.encodings = [{}];
-          params.encodings[0].maxBitrate = 8_000_000;
+          params.encodings[0].maxBitrate = 20_000_000;
           sender.setParameters(params).catch(() => {});
         });
         break;
@@ -417,6 +423,19 @@ export default function Room({ session, onLeave }) {
         setSsToast(true); setTimeout(() => setSsToast(false), 2200);
         break;
       }
+      case "screen-share": {
+        remoteScreenStreamIdRef.current = payload.streamId;
+        const existing = receivedStreamsRef.current.get(payload.streamId);
+        if (existing) setRemoteScreenStream(existing);
+        setMsgs(p => [...p, { id: Date.now(), type: "sys", text: "🖥 Partner started screen sharing" }]);
+        break;
+      }
+      case "screen-share-stop": {
+        remoteScreenStreamIdRef.current = null;
+        setRemoteScreenStream(null);
+        setMsgs(p => [...p, { id: Date.now(), type: "sys", text: "🖥 Partner stopped screen sharing" }]);
+        break;
+      }
       case "room-full": {
         alert("Room is full (max 2 users). Please use a different room code.");
         break;
@@ -428,7 +447,28 @@ export default function Room({ session, onLeave }) {
   useEffect(() => () => {
     closePeerConnection();
     if (streamRafRef.current) cancelAnimationFrame(streamRafRef.current);
+    screenStreamRef.current?.getTracks().forEach(t => t.stop());
   }, [closePeerConnection]);
+
+  /* Wire received screen share stream to the video element */
+  useEffect(() => {
+    const v = document.getElementById("screen-share-video");
+    if (!v) return;
+    if (remoteScreenStream) {
+      v.srcObject = remoteScreenStream;
+      v.volume = Math.max(0, Math.min(1, screenShareVolume));
+      v.play().catch(() => {});
+    } else {
+      v.srcObject = null;
+    }
+  }, [remoteScreenStream]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Keep screen share audio volume in sync */
+  useEffect(() => {
+    if (!remoteScreenStream) return;
+    const v = document.getElementById("screen-share-video");
+    if (v) v.volume = Math.max(0, Math.min(1, screenShareVolume));
+  }, [screenShareVolume, remoteScreenStream]);
 
   /* Partner: wire video srcObject when movie stream arrives.
      Look up the element directly — don't rely on the pre-populated ref
@@ -481,9 +521,16 @@ export default function Room({ session, onLeave }) {
 
   /* Fullscreen tracking — standard + WebKit document events */
   useEffect(() => {
-    const lockOrientation = (v) => {
-      if (!screen.orientation?.lock || !v?.videoWidth) return;
-      const orient = v.videoWidth >= v.videoHeight ? "landscape" : "portrait";
+    /* Pick the active video element for orientation detection:
+       prefer screen-share-video if it has a frame (partner viewing shared screen),
+       otherwise fall back to the main movie video. */
+    const lockOrientation = () => {
+      if (!screen.orientation?.lock) return;
+      const ssVid   = document.getElementById("screen-share-video");
+      const mainVid = videoRef.current || document.getElementById("main-video");
+      const active  = (ssVid && ssVid.videoWidth > 0) ? ssVid : mainVid;
+      if (!active?.videoWidth) return;
+      const orient = active.videoWidth >= active.videoHeight ? "landscape" : "portrait";
       screen.orientation.lock(orient).catch(() => {});
     };
     const reattach = () => {
@@ -499,19 +546,23 @@ export default function Room({ session, onLeave }) {
       const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
       setFullscreen(isFs);
       if (isFs) {
-        lockOrientation(videoRef.current || document.getElementById("main-video"));
+        lockOrientation();
       } else {
         screen.orientation?.unlock?.();
         reattach();
       }
     };
+    // Escape exits CSS fullscreen (native fullscreen handles its own Escape)
+    const onKey = (e) => { if (e.key === "Escape" && cssFsRef.current) exitCssFs(); };
     document.addEventListener("fullscreenchange",       h);
     document.addEventListener("webkitfullscreenchange", h);
+    document.addEventListener("keydown",                onKey);
     return () => {
       document.removeEventListener("fullscreenchange",       h);
       document.removeEventListener("webkitfullscreenchange", h);
+      document.removeEventListener("keydown",                onKey);
     };
-  }, [isHost]);
+  }, [isHost, exitCssFs]);
 
   /* Fix 1 + Fix 3: iOS native video fullscreen (webkitEnterFullscreen path)
      Re-binds every render so it always targets the live DOM element. */
@@ -668,23 +719,71 @@ export default function Room({ session, onLeave }) {
     v.playbackRate = s; setSpeed(s); emit("speed", { speed: s });
   }, [isHost, emit]);
 
+  /* CSS fullscreen helpers — used when native fullscreen API is unavailable (iOS, some Android) */
+  const enterCssFs = useCallback(() => {
+    cssFsRef.current = true;
+    setCssFs(true);
+    setFullscreen(true);
+    // Orientation lock for CSS fullscreen
+    const ssVid  = document.getElementById("screen-share-video");
+    const mainVid = videoRef.current || document.getElementById("main-video");
+    const active  = (ssVid?.videoWidth > 0) ? ssVid : mainVid;
+    if (screen.orientation?.lock && active?.videoWidth) {
+      const orient = active.videoWidth >= active.videoHeight ? "landscape" : "portrait";
+      screen.orientation.lock(orient).catch(() => {});
+    }
+  }, []);
+
+  const exitCssFs = useCallback(() => {
+    if (!cssFsRef.current) return;
+    cssFsRef.current = false;
+    setCssFs(false);
+    setFullscreen(false);
+    screen.orientation?.unlock?.();
+  }, []);
+
   const toggleFs = useCallback(() => {
-    const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-    if (isFs) {
+    const isNativeFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+    // Exit native fullscreen
+    if (isNativeFs) {
       (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
       return;
     }
-    const wrap = wrapRef.current;
+    // Exit CSS fullscreen
+    if (cssFsRef.current) { exitCssFs(); return; }
+
+    const wrap    = wrapRef.current;
+    const ssVid   = document.getElementById("screen-share-video");
+    const mainVid = videoRef.current || document.getElementById("main-video");
+    // For iOS: prefer the video element that actually has a frame
+    const activeVid = (ssVid?.videoWidth > 0) ? ssVid : mainVid;
+
+    // Method 1: standard requestFullscreen on wrapper (Android Chrome, Firefox, desktop)
     if (wrap?.requestFullscreen) {
-      wrap.requestFullscreen().catch(() => {});
-    } else if (wrap?.webkitRequestFullscreen) {
-      wrap.webkitRequestFullscreen();
-    } else {
-      // iOS Safari: only <video> supports native fullscreen
-      const v = document.getElementById("main-video");
-      v?.webkitEnterFullscreen?.();
+      wrap.requestFullscreen().catch(() => {
+        // Method 2: WebKit-prefixed on wrapper (older Safari desktop)
+        if (wrap.webkitRequestFullscreen) {
+          try { wrap.webkitRequestFullscreen(); return; } catch {}
+        }
+        // Method 3: iOS native video fullscreen (only <video> elements)
+        if (activeVid?.webkitEnterFullscreen) {
+          try { activeVid.webkitEnterFullscreen(); return; } catch {}
+        }
+        // Method 4: CSS fullscreen — works on any device, any browser
+        enterCssFs();
+      });
+      return;
     }
-  }, []);
+    if (wrap?.webkitRequestFullscreen) {
+      try { wrap.webkitRequestFullscreen(); return; } catch {}
+    }
+    if (activeVid?.webkitEnterFullscreen) {
+      try { activeVid.webkitEnterFullscreen(); return; } catch {}
+    }
+    // Final fallback: CSS fullscreen
+    enterCssFs();
+  }, [enterCssFs, exitCssFs]);
 
   /* ─────────────────────────────────────────────
      SCREENSHOT
@@ -816,6 +915,66 @@ export default function Room({ session, onLeave }) {
   };
 
   /* ─────────────────────────────────────────────
+     SCREEN SHARE
+  ───────────────────────────────────────────── */
+  const stopScreenShare = useCallback(() => {
+    const stream = screenStreamRef.current;
+    if (!stream) return;
+    const pc = pcRef.current;
+    if (pc) {
+      const ids = new Set(stream.getTracks().map(t => t.id));
+      pc.getSenders()
+        .filter(s => s.track && ids.has(s.track.id))
+        .forEach(s => pc.removeTrack(s));
+    }
+    stream.getTracks().forEach(t => t.stop());
+    screenStreamRef.current = null;
+    setScreenSharing(false);
+    emit("screen-share-stop", {});
+    setMsgs(p => [...p, { id: Date.now(), type: "sys", text: "🖥 You stopped screen sharing" }]);
+  }, [emit]);
+
+  const startScreenShare = useCallback(async () => {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      alert("Screen sharing is not supported in this browser. Use Chrome, Edge or Firefox.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 60, max: 60 }, cursor: "always" },
+        audio: true,
+      });
+      screenStreamRef.current = stream;
+      const pc = pcRef.current;
+      if (pc && pc.signalingState !== "closed") {
+        stream.getTracks().forEach(t => pc.addTrack(t, stream));
+      }
+      emit("screen-share", { streamId: stream.id });
+      setScreenSharing(true);
+      setMsgs(p => [...p, { id: Date.now(), type: "sys", text: "🖥 You started screen sharing" }]);
+      /* Handle "Stop sharing" button in browser chrome */
+      stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+        const s = screenStreamRef.current;
+        if (!s) return;
+        const pc2 = pcRef.current;
+        if (pc2) {
+          const ids = new Set(s.getTracks().map(t => t.id));
+          pc2.getSenders()
+            .filter(s2 => s2.track && ids.has(s2.track.id))
+            .forEach(s2 => pc2.removeTrack(s2));
+        }
+        s.getTracks().forEach(t => t.stop());
+        screenStreamRef.current = null;
+        setScreenSharing(false);
+        emit("screen-share-stop", {});
+        setMsgs(p => [...p, { id: Date.now(), type: "sys", text: "🖥 You stopped screen sharing" }]);
+      });
+    } catch (e) {
+      if (e.name !== "NotAllowedError") alert("Screen sharing failed: " + (e.message || e));
+    }
+  }, [emit]);
+
+  /* ─────────────────────────────────────────────
      CHAT & UTILS
   ───────────────────────────────────────────── */
   const sendChat = (text) => {
@@ -844,6 +1003,10 @@ export default function Room({ session, onLeave }) {
   const ctrlProps = {
     playing, curTime, duration, volume, muted, speed,
     showSub, fullscreen, hasFile, fileName, pct, vpct,
+    screenSharing,
+    hasRemoteScreenShare: !!remoteScreenStream,
+    screenShareVolume,
+    onScreenShareVolumeChange: setScreenShareVolume,
     readOnly:    !isHost,
     onTogglePlay: togglePlay,
     onSeek:      (t) => { keepVisible(); seekTo(t); },
@@ -858,6 +1021,8 @@ export default function Room({ session, onLeave }) {
     onToggleFs:  toggleFs,
     onLoadMovie: () => fileInputRef.current?.click(),
     onActivity:  keepVisible,
+    onStartScreenShare: startScreenShare,
+    onStopScreenShare:  stopScreenShare,
   };
 
   const camPanelProps = {
@@ -865,6 +1030,8 @@ export default function Room({ session, onLeave }) {
     localStream: localStream.current,
     remoteStream, remoteMovieStream, hostMovieLoaded,
     camOn, micOn, isHost, roomId, screenshots,
+    remoteVolume,
+    onRemoteVolumeChange: setRemoteVolume,
     onStartCam:       startCam,
     onStopCam:        stopCam,
     onToggleMic:      toggleMic,
@@ -957,6 +1124,9 @@ export default function Room({ session, onLeave }) {
           revealControls={revealControls}
           audioLocked={audioLocked}
           onStartWatching={startWatching}
+          screenSharing={screenSharing}
+          remoteScreenStream={remoteScreenStream}
+          cssFs={cssFs}
         />
 
         {/* Side panel */}

@@ -4,9 +4,11 @@ import { fmt } from "../utils/format.js";
 export default function ControlsBar({
   playing, curTime, duration, volume, muted, speed,
   showSub, fullscreen, hasFile, fileName, pct, vpct, readOnly,
+  screenSharing, hasRemoteScreenShare, screenShareVolume = 1, onScreenShareVolumeChange,
   onTogglePlay, onSeek, onSeekBy, onVolChange, onToggleMute,
   onSpeed, onToggleSub, onLoadSub, onRotate, onScreenshot,
   onToggleFs, onLoadMovie, onActivity,
+  onStartScreenShare, onStopScreenShare,
 }) {
   const ro = readOnly;
 
@@ -14,7 +16,8 @@ export default function ControlsBar({
   if (ro) {
     return (
       <div className="ctrl-row ctrl-row-partner">
-        <div className="ctrl-l">
+        <div className="ctrl-l" style={{ gap: ".75rem" }}>
+          {/* Movie / stream volume */}
           <div className="vol-wrap">
             <button className="ic-btn" onClick={onToggleMute} title={muted ? "Unmute" : "Mute"}>
               {muted || volume === 0 ? I.VolMute : I.VolHi}
@@ -25,8 +28,28 @@ export default function ControlsBar({
               onChange={(e) => onVolChange(parseFloat(e.target.value))}
             />
           </div>
+          {/* Screen share audio volume — only when receiving a share */}
+          {hasRemoteScreenShare && (
+            <div className="vol-wrap" title="Screen share audio">
+              <span style={{ fontSize: ".75rem", lineHeight: 1, color: "var(--muted)" }}>🖥</span>
+              <input
+                type="range" className="vol" min={0} max={1} step={0.01}
+                value={screenShareVolume}
+                style={{ "--vpct": `${screenShareVolume * 100}%` }}
+                onChange={(e) => onScreenShareVolumeChange?.(parseFloat(e.target.value))}
+                title="Screen share volume"
+              />
+            </div>
+          )}
         </div>
         <div className="ctrl-r" style={{ marginLeft: "auto" }}>
+          <button
+            className={`ic-btn${screenSharing ? " ic-btn-sharing" : ""}`}
+            onClick={screenSharing ? onStopScreenShare : onStartScreenShare}
+            title={screenSharing ? "Stop sharing" : "Share screen"}
+          >
+            {screenSharing ? I.ScreenShareOff : I.ScreenShare}
+          </button>
           <button className={`ic-btn${showSub ? " active" : ""}`} onClick={onToggleSub} title="Toggle subtitles">{I.Sub}</button>
           <button className="ic-btn btn-rotate" onClick={onRotate} title="Rotate video">{I.Rot}</button>
           <button className="ic-btn ic-btn-ss" onClick={onScreenshot} title="Screenshot">{I.SS}</button>
@@ -57,8 +80,8 @@ export default function ControlsBar({
 
       {/* Controls row */}
       <div className="ctrl-row">
-        {/* Left: volume */}
-        <div className="ctrl-l">
+        {/* Left: movie volume + optional screen share volume */}
+        <div className="ctrl-l" style={{ gap: ".75rem" }}>
           <div className="vol-wrap">
             <button className="ic-btn" onClick={onToggleMute} title={muted ? "Unmute" : "Mute"}>
               {muted || volume === 0 ? I.VolMute : I.VolHi}
@@ -74,6 +97,20 @@ export default function ControlsBar({
               onChange={(e) => onVolChange(parseFloat(e.target.value))}
             />
           </div>
+          {hasRemoteScreenShare && (
+            <div className="vol-wrap" title="Screen share audio">
+              <span style={{ fontSize: ".75rem", lineHeight: 1, color: "var(--muted)" }}>🖥</span>
+              <input
+                type="range" className="vol" min={0} max={1} step={0.01}
+                value={screenShareVolume}
+                style={{ "--vpct": `${screenShareVolume * 100}%` }}
+                onMouseDown={onActivity}
+                onTouchStart={onActivity}
+                onChange={(e) => onScreenShareVolumeChange?.(parseFloat(e.target.value))}
+                title="Screen share volume"
+              />
+            </div>
+          )}
         </div>
 
         {/* Centre: transport */}
@@ -104,6 +141,13 @@ export default function ControlsBar({
           <button className="ic-btn" onClick={onLoadSub} title="Load subtitle file"
             style={{ fontSize: ".58rem", letterSpacing: "0", fontWeight: "bold" }}>CC+</button>
           <button className="ic-btn btn-rotate" onClick={onRotate} title="Rotate video">{I.Rot}</button>
+          <button
+            className={`ic-btn${screenSharing ? " ic-btn-sharing" : ""}`}
+            onClick={screenSharing ? onStopScreenShare : onStartScreenShare}
+            title={screenSharing ? "Stop sharing" : "Share screen"}
+          >
+            {screenSharing ? I.ScreenShareOff : I.ScreenShare}
+          </button>
           <button className="ic-btn ic-btn-ss" onClick={onScreenshot} title="Screenshot">{I.SS}</button>
           <button className="ic-btn" onClick={onToggleFs} title={fullscreen ? "Exit fullscreen" : "Fullscreen"}>
             {fullscreen ? I.FsExit : I.Fs}
