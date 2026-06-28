@@ -9,13 +9,15 @@ export default function StreamVideo({ stream, muted = false, volume = 1, classNa
     if (stream) {
       vid.srcObject = stream;
       vid.muted = muted; // set property directly — JSX muted attr is unreliable in React
-      vid.play().catch(() => {
-        if (!muted) {
-          // Browser blocked audio autoplay — play muted first, then unmute
-          vid.muted = true;
-          vid.play().then(() => { vid.muted = false; }).catch(() => {});
-        }
-      });
+      vid.play()
+        .then(() => { if (!muted) vid.muted = false; }) // Chrome may autoplay muted; force-unmute after
+        .catch(() => {
+          if (!muted) {
+            // Browser blocked audio autoplay — play muted first, then unmute
+            vid.muted = true;
+            vid.play().then(() => { vid.muted = false; }).catch(() => {});
+          }
+        });
     } else {
       vid.srcObject = null;
     }

@@ -457,13 +457,20 @@ export default function Room({ session, onLeave }) {
     if (!v) return;
     if (remoteScreenStream) {
       v.srcObject = remoteScreenStream;
-      v.muted = false; // must set property — attribute alone is unreliable
+      v.muted = false;
       v.volume = Math.max(0, Math.min(1, screenShareVolume));
-      v.play().catch(() => {
-        // Autoplay blocked with audio — play muted first then unmute
-        v.muted = true;
-        v.play().then(() => { v.muted = false; }).catch(() => {});
-      });
+      v.play()
+        .then(() => { v.muted = false; }) // Chrome may autoplay-mute; force-unmute after
+        .catch(() => {
+          // Audio autoplay blocked — play muted first, then unmute
+          v.muted = true;
+          v.play()
+            .then(() => { v.muted = false; })
+            .catch(() => {
+              // Completely blocked — show tap-to-unlock overlay (only if no movie loaded)
+              if (!hasFileRef.current) setAudioLocked(true);
+            });
+        });
     } else {
       v.srcObject = null;
     }
@@ -642,15 +649,23 @@ export default function Room({ session, onLeave }) {
   }, []);
 
   const startWatching = useCallback(() => {
+    // Helper: play with audio, unmuting after play() to override any browser auto-muting
+    const playWithAudio = (el) => {
+      el.muted = false;
+      el.play()
+        .then(() => { el.muted = false; })
+        .catch(() => {
+          el.muted = true;
+          el.play().then(() => { el.muted = false; }).catch(() => {});
+        });
+    };
     const v = videoRef.current;
-    if (v) v.play().catch(() => {});
-    // Unlock camera and screen-share video elements — play any paused ones, unmute any
-    // that the browser started muted due to autoplay policy
+    if (v) playWithAudio(v);
+    // Unlock camera and screen-share video elements that arrived before the tap
     document.querySelectorAll("video").forEach(vid => {
-      if (vid === v || vid === localVidRef.current) return; // skip movie & local preview
+      if (vid === v || vid === localVidRef.current) return; // skip movie & local camera preview
       if (!vid.srcObject) return;
-      if (vid.paused) vid.play().catch(() => {});
-      if (vid.muted) vid.muted = false; // unmute audio that was blocked on mount
+      playWithAudio(vid);
     });
     setAudioLocked(false);
   }, []);
@@ -952,6 +967,8 @@ export default function Room({ session, onLeave }) {
   const toggleMic = () => {
     const next = !micOn;
     localStream.current?.getAudioTracks().forEach(t => { t.enabled = next; });
+    // Also mute/unmute the screen-share mic (captured separately when camera is off)
+    screenShareMicRef.current?.getAudioTracks().forEach(t => { t.enabled = next; });
     setMicOn(next);
   };
 
