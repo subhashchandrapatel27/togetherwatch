@@ -493,7 +493,8 @@ export default function Room({ session, onLeave }) {
     videoRef.current = v;
     v.srcObject = remoteMovieStream;
     setHasFile(true);
-    setAudioLocked(true); // partner must tap to unlock audio (browser autoplay policy)
+    // Only lock for audio tap when the stream actually carries audio tracks
+    if (remoteMovieStream.getAudioTracks().length > 0) setAudioLocked(true);
   }, [remoteMovieStream, isHost]);
 
   /* Video events (host only for time tracking) */
@@ -1086,7 +1087,7 @@ export default function Room({ session, onLeave }) {
     playing, curTime, duration, volume, muted, speed,
     showSub, fullscreen, hasFile, fileName, pct, vpct,
     screenSharing,
-    hasRemoteScreenShare: !!remoteScreenStream,
+    hasRemoteScreenShare: !!(remoteScreenStream?.getAudioTracks().length),
     screenShareVolume,
     onScreenShareVolumeChange: setScreenShareVolume,
     readOnly:    !isHost,
