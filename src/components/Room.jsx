@@ -533,6 +533,20 @@ export default function Room({ session, onLeave }) {
   /* Keep ref in sync so event handlers always see the latest stream */
   useEffect(() => { remoteMovieStreamRef.current = remoteMovieStream; }, [remoteMovieStream]);
 
+  /* Resume any paused video streams — called on fullscreen exit and page visibility restore */
+  const reattachStreams = useCallback(() => {
+    if (!isHost) {
+      const mainVid = videoRef.current || document.getElementById("main-video");
+      const ms = remoteMovieStreamRef.current;
+      if (mainVid && ms) {
+        if (!mainVid.srcObject) mainVid.srcObject = ms;
+        if (mainVid.paused) mainVid.play().catch(() => {});
+      }
+    }
+    const ssVid = document.getElementById("screen-share-video");
+    if (ssVid && ssVid.srcObject && ssVid.paused) ssVid.play().catch(() => {});
+  }, [isHost]);
+
   /* CSS fullscreen helpers — must be defined BEFORE the fullscreen tracking effect uses them */
   const enterCssFs = useCallback(() => {
     cssFsRef.current = true;
@@ -553,13 +567,12 @@ export default function Room({ session, onLeave }) {
     setCssFs(false);
     setFullscreen(false);
     screen.orientation?.unlock?.();
-  }, []);
+    // Layout needs one frame to settle before srcObject re-binding works reliably
+    setTimeout(reattachStreams, 100);
+  }, [reattachStreams]);
 
   /* Fullscreen tracking — standard + WebKit document events */
   useEffect(() => {
-    /* Pick the active video element for orientation detection:
-       prefer screen-share-video if it has a frame (partner viewing shared screen),
-       otherwise fall back to the main movie video. */
     const lockOrientation = () => {
       if (!screen.orientation?.lock) return;
       const ssVid   = document.getElementById("screen-share-video");
@@ -569,33 +582,11 @@ export default function Room({ session, onLeave }) {
       const orient = active.videoWidth >= active.videoHeight ? "landscape" : "portrait";
       screen.orientation.lock(orient).catch(() => {});
     };
-    const reattach = () => {
-      // Re-attach and resume all video sources after exiting fullscreen.
-      // Some browsers (iOS, Android) pause or clear WebRTC streams on fullscreen exit.
-      // Do NOT set audioLocked — the user gesture that exited fullscreen is sufficient.
-      if (!isHost) {
-        const mainVid = videoRef.current || document.getElementById("main-video");
-        const ms = remoteMovieStreamRef.current;
-        if (mainVid && ms) {
-          if (!mainVid.srcObject) mainVid.srcObject = ms;
-          if (mainVid.paused) mainVid.play().catch(() => {});
-        }
-      }
-      // Always try to resume screen share video regardless of role
-      const ssVid = document.getElementById("screen-share-video");
-      if (ssVid && ssVid.srcObject && ssVid.paused) ssVid.play().catch(() => {});
-    };
     const h = () => {
       const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
       setFullscreen(isFs);
-      if (isFs) {
-        lockOrientation();
-      } else {
-        screen.orientation?.unlock?.();
-        reattach();
-      }
+      if (isFs) { lockOrientation(); } else { screen.orientation?.unlock?.(); reattachStreams(); }
     };
-    // Escape exits CSS fullscreen (native fullscreen handles its own Escape)
     const onKey = (e) => { if (e.key === "Escape" && cssFsRef.current) exitCssFs(); };
     document.addEventListener("fullscreenchange",       h);
     document.addEventListener("webkitfullscreenchange", h);
@@ -605,7 +596,16 @@ export default function Room({ session, onLeave }) {
       document.removeEventListener("webkitfullscreenchange", h);
       document.removeEventListener("keydown",                onKey);
     };
-  }, [isHost, exitCssFs]);
+  }, [exitCssFs, reattachStreams]);
+
+  /* Resume videos when the app returns from background (mobile tab-switch / home button) */
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") reattachStreams();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [reattachStreams]);
 
   /* Fix 1 + Fix 3: iOS native video fullscreen (webkitEnterFullscreen path)
      Re-binds every render so it always targets the live DOM element. */
@@ -616,16 +616,7 @@ export default function Room({ session, onLeave }) {
     const onEnd = () => {
       setFullscreen(false);
       screen.orientation?.unlock?.();
-      // iOS native player exits — resume any paused WebRTC streams without triggering audioLocked
-      if (!isHost) {
-        const ms = remoteMovieStreamRef.current;
-        if (ms) {
-          if (!v.srcObject) v.srcObject = ms;
-          if (v.paused) v.play().catch(() => {});
-        }
-      }
-      const ssVid = document.getElementById("screen-share-video");
-      if (ssVid && ssVid.srcObject && ssVid.paused) ssVid.play().catch(() => {});
+      reattachStreams();
     };
     v.addEventListener("webkitbeginfullscreen", onBegin);
     v.addEventListener("webkitendfullscreen",   onEnd);
