@@ -17,7 +17,7 @@ export default function PipTile({ stream, label, muted, micMuted, camOn }) {
   return (
     <div className="pip-tile">
       {camOn ? (
-        <video ref={vidRef} autoPlay muted={muted} playsInline style={{ transform: "none" }} />
+        <video ref={vidRef} autoPlay muted={muted} playsInline style={{ transform: "scaleX(-1)" }} />
       ) : (
         <div className="pip-ph">
           <span className="pip-ph-ic">🙈</span>
