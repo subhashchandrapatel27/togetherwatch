@@ -10,7 +10,11 @@ export function useSocket(roomId, name, isHost) {
     if (!roomId) return;
     const socket = io(SOCKET_URL, { transports: ["websocket", "polling"] });
     socketRef.current = socket;
-    socket.emit("join-room", { roomId, name, isHost });
+    // Use the connect event (fires on initial connect AND every reconnect) so
+    // join-room is re-emitted after server restarts that wipe in-memory rooms.
+    socket.on("connect", () => {
+      socket.emit("join-room", { roomId, name, isHost });
+    });
     socket.onAny((event, payload) => {
       handlerRef.current?.(event, payload ?? {});
     });
